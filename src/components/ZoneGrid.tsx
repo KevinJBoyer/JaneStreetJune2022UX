@@ -108,34 +108,151 @@ export const ZoneGrid: React.FC<ZoneGridProps> = ({
 
   const performStep = (currentGrid: Cell[][]): Cell[][] => {
     // Deep clone the grid to avoid mutating state directly
-    const nextGrid = JSON.parse(JSON.stringify(currentGrid));
+    const nextGrid = JSON.parse(JSON.stringify(currentGrid)) as Cell[][];
 
-    for (let row of nextGrid) {
-      for (let cell of row) {
-        // each cell is of type Cell (see types.ts) but I'm still learning TypeScript so
-        // not sure how to assign it that type yet!
+    const flatCells = nextGrid.flat();
 
-        // If there's only one possible
-        if (cell.possibleValues.length === 1) {
-          cell.value = cell.possibleValues[0];
-        }
+    // Hygiene: if a cell's value is known, restrict possibleValues to just that value
+    for (let cell of flatCells.filter((cell) => cell.value)) {
+      cell.possibleValues = [cell.value!];
+    }
 
-        // TODO: Remove possible values from known cells in zone
-        // E.g., if there's a "5" in the zone
-
-        // Sophia:
-        // Use taxicab radiaii for known values!
-        // Especially for higher digits (e.g., 6) -- there will
-        // be fewer cells that can hold that number
-
-        // Jakub:
-        // You can eliminate from possibleValues anything closer
-        // So cells that are closer than taxi-cab distance 6 can't
-        // be 6, etc.
+    // If there's only one possible value for the cell, update it
+    for (let cell of flatCells) {
+      if (cell.possibleValues.length === 1) {
+        cell.value = cell.possibleValues[0];
       }
     }
 
+    // For each cell with a known value in a zone, remove that from the
+    // possible values of the other cells in the zone
+    for (let cell of flatCells) {
+      if (cell.value) {
+        for (let otherCell of flatCells.filter(
+          (otherCell) => otherCell.zone == cell.zone
+        )) {
+          otherCell.possibleValues = otherCell.possibleValues.filter(
+            (val) => val != cell.value
+          );
+        }
+      }
+    }
+
+    // TODO: Remove possible values from known cells in zone
+    // E.g., if there's a "5" in the zone
+
+    // Sophia:
+    // Use taxicab radiaii for known values!
+    // Especially for higher digits (e.g., 6) -- there will
+    // be fewer cells that can hold that number
+    for (let [rowIndex, row] of grid.entries()) {
+      for (let [colIndex, cell] of row.entries()) {
+        if (cell.value) {
+          const candidates = findCellsNAway(
+            grid,
+            rowIndex,
+            colIndex,
+            cell.value
+          );
+          const filteredCandidates = candidates.filter((candidateCell) =>
+            candidateCell.possibleValues.includes(cell.value!)
+          );
+          if (filteredCandidates.length == 1) {
+            filteredCandidates[0].value = cell.value;
+          }
+        }
+      }
+    }
+
+    // Jakub:
+    // You can eliminate from possibleValues anything closer
+    // So cells that are closer than taxi-cab distance 6 can't
+    // be 6, etc.
+    eliminateKnownWithinTaxicab(grid);
+
     return nextGrid;
+  };
+
+  const findCellsNAway = (
+    grid: Cell[][],
+    rowIndex: number,
+    colIndex: number,
+    stepsRemaining: number
+  ): Cell[] => {
+    if (rowIndex < 0 || rowIndex > 9 || colIndex < 0 || colIndex > 9) {
+      return [];
+    }
+    if (stepsRemaining == 0) {
+      return [grid[rowIndex][colIndex]];
+    }
+
+    return [
+      ...findCellsNAway(grid, rowIndex - 1, colIndex, stepsRemaining - 1),
+      ...findCellsNAway(grid, rowIndex + 1, colIndex, stepsRemaining - 1),
+      ...findCellsNAway(grid, rowIndex, colIndex - 1, stepsRemaining - 1),
+      ...findCellsNAway(grid, rowIndex, colIndex + 1, stepsRemaining - 1),
+    ];
+  };
+
+  const eliminateKnownWithinTaxicab = (grid: Cell[][]) => {
+    const travel = (
+      grid: Cell[][],
+      rowIndex: number,
+      colIndex: number,
+      valueToEliminate: number,
+      stepsRemaining: number
+    ) => {
+      if (
+        rowIndex < 0 ||
+        rowIndex > 9 ||
+        colIndex < 0 ||
+        colIndex > 9 ||
+        stepsRemaining < 0
+      ) {
+        return;
+      }
+
+      grid[rowIndex][colIndex].possibleValues = grid[rowIndex][
+        colIndex
+      ].possibleValues.filter((val) => val != valueToEliminate);
+
+      travel(
+        grid,
+        rowIndex - 1,
+        colIndex,
+        valueToEliminate,
+        stepsRemaining - 1
+      );
+      travel(
+        grid,
+        rowIndex + 1,
+        colIndex,
+        valueToEliminate,
+        stepsRemaining - 1
+      );
+      travel(
+        grid,
+        rowIndex,
+        colIndex - 1,
+        valueToEliminate,
+        stepsRemaining - 1
+      );
+      travel(
+        grid,
+        rowIndex,
+        colIndex + 1,
+        valueToEliminate,
+        stepsRemaining - 1
+      );
+    };
+
+    for (let [rowIndex, row] of grid.entries()) {
+      for (let [colIndex, cell] of row.entries()) {
+        if (cell.value) {
+          travel(grid, rowIndex, colIndex, cell.value, cell.value - 1);
+        }
+      }
+    }
   };
 
   const handleStep = () => {
