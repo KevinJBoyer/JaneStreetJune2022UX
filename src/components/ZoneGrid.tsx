@@ -138,8 +138,14 @@ export const ZoneGrid: React.FC<ZoneGridProps> = ({
       }
     }
 
-    // TODO: Remove possible values from known cells in zone
-    // E.g., if there's a "5" in the zone
+    // Keep .possibleValues && .value in sync
+    for (let cell of flatCells) {
+      if (cell.value) {
+        if (!cell.possibleValues.includes(cell.value)) {
+          cell.possibleValues = [...cell.possibleValues, cell.value];
+        }
+      }
+    }
 
     // Sophia:
     // Use taxicab radiaii for known values!
@@ -169,6 +175,36 @@ export const ZoneGrid: React.FC<ZoneGridProps> = ({
     // So cells that are closer than taxi-cab distance 6 can't
     // be 6, etc.
     eliminateKnownWithinTaxicab(grid);
+
+    // TODO: if a zone only has one cell with a possible value,
+    // make that cell that value
+
+    // If a cell has a possible value,
+    // is there a cell N steps away *in a different zone* that
+    // could possibly have that value? if not, remove that as a
+    // possible value for the cell
+    for (let [rowIndex, row] of grid.entries()) {
+      for (let [colIndex, cell] of row.entries()) {
+        for (let possibleValue of cell.possibleValues) {
+          let candidates = findCellsNAway(
+            grid,
+            rowIndex,
+            colIndex,
+            possibleValue
+          );
+          let filteredCandidates = candidates.filter(
+            (candidate) =>
+              candidate.possibleValues.includes(possibleValue) &&
+              candidate.zone != cell.zone
+          );
+          if (filteredCandidates.length < 1) {
+            cell.possibleValues = cell.possibleValues.filter(
+              (val) => val != possibleValue
+            );
+          }
+        }
+      }
+    }
 
     return nextGrid;
   };
@@ -292,6 +328,9 @@ export const ZoneGrid: React.FC<ZoneGridProps> = ({
       >
         Step
       </button>
+      <h1 className="text-2xl font-bold mb-4">
+        {grid.flat().filter((cell) => cell.value).length}/100 found
+      </h1>
     </div>
   );
 };
