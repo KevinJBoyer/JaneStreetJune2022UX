@@ -175,6 +175,9 @@ export const ZoneGrid: React.FC<ZoneGridProps> = ({
       >
         Step
       </button>
+      <h1 className="text-2xl font-bold mb-4">
+        {grid.flat().filter((cell) => cell.value).length}/100 found
+      </h1>
     </div>
   );
 };
