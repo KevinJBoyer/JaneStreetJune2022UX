@@ -10,7 +10,7 @@ export const ZoneGrid: React.FC<ZoneGridProps> = ({
     [0, 1, 3],
     [0, 5, 7],
     [1, 3, 4],
-    [2, 9, 2],
+    [2, 8, 2],
     [3, 3, 1],
     [4, 0, 6],
     [4, 2, 1],
