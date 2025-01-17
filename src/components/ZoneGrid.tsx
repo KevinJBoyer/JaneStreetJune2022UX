@@ -178,6 +178,21 @@ export const ZoneGrid: React.FC<ZoneGridProps> = ({
 
     // TODO: if a zone only has one cell with a possible value,
     // make that cell that value
+    /*
+    for (let cell of flatCells.filter((c) => c.possibleValues.length > 1)) {
+      for (let possibleValue of cell.possibleValues) {
+        // this includes the cell itself
+        const neighborsThatCanBeThisValue = flatCells.filter(
+          (c) => c.zone == cell.zone && c.possibleValues.includes(possibleValue)
+        );
+        if (neighborsThatCanBeThisValue.length == 1) {
+          cell.possibleValues = [possibleValue];
+          cell.value = possibleValue;
+          break;
+        }
+      }
+    }
+    */
 
     // If a cell has a possible value,
     // is there a cell N steps away *in a different zone* that
@@ -185,22 +200,24 @@ export const ZoneGrid: React.FC<ZoneGridProps> = ({
     // possible value for the cell
     for (let [rowIndex, row] of grid.entries()) {
       for (let [colIndex, cell] of row.entries()) {
-        for (let possibleValue of cell.possibleValues) {
-          let candidates = findCellsNAway(
-            grid,
-            rowIndex,
-            colIndex,
-            possibleValue
-          );
-          let filteredCandidates = candidates.filter(
-            (candidate) =>
-              candidate.possibleValues.includes(possibleValue) &&
-              candidate.zone != cell.zone
-          );
-          if (filteredCandidates.length < 1) {
-            cell.possibleValues = cell.possibleValues.filter(
-              (val) => val != possibleValue
+        if (cell.possibleValues.length > 1) {
+          for (let possibleValue of cell.possibleValues) {
+            let candidates = findCellsNAway(
+              grid,
+              rowIndex,
+              colIndex,
+              possibleValue
             );
+            let filteredCandidates = candidates.filter(
+              (candidate) =>
+                candidate.possibleValues.includes(possibleValue) &&
+                candidate.zone != cell.zone
+            );
+            if (filteredCandidates.length < 1) {
+              cell.possibleValues = cell.possibleValues.filter(
+                (val) => val != possibleValue
+              );
+            }
           }
         }
       }
@@ -213,8 +230,27 @@ export const ZoneGrid: React.FC<ZoneGridProps> = ({
     grid: Cell[][],
     rowIndex: number,
     colIndex: number,
-    stepsRemaining: number
+    n: number
   ): Cell[] => {
+    let possibleCoords: [number, number][] = [];
+
+    let coord: [number, number] = [rowIndex - n, colIndex];
+    let d: [number, number] = [1, 1];
+    do {
+      possibleCoords.push([coord[0], coord[1]]);
+      if (coord[0] == rowIndex && coord[1] == colIndex + n) d = [1, -1];
+      if (coord[0] == rowIndex + n && coord[1] == colIndex) d = [-1, -1];
+      if (coord[0] == rowIndex && coord[1] == colIndex - n) d = [-1, 1];
+
+      coord[0] += d[0];
+      coord[1] += d[1];
+    } while (!(coord[0] == rowIndex - n && coord[1] == colIndex));
+    possibleCoords = possibleCoords.filter(
+      (coord) =>
+        coord[0] >= 0 && coord[0] < 10 && coord[1] >= 0 && coord[1] < 10
+    );
+    return possibleCoords.map((coord) => grid[coord[0]][coord[1]]);
+    /*
     if (rowIndex < 0 || rowIndex > 9 || colIndex < 0 || colIndex > 9) {
       return [];
     }
@@ -228,6 +264,7 @@ export const ZoneGrid: React.FC<ZoneGridProps> = ({
       ...findCellsNAway(grid, rowIndex, colIndex - 1, stepsRemaining - 1),
       ...findCellsNAway(grid, rowIndex, colIndex + 1, stepsRemaining - 1),
     ];
+    */
   };
 
   const eliminateKnownWithinTaxicab = (grid: Cell[][]) => {
